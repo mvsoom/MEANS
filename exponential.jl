@@ -34,12 +34,13 @@ end
 
 # ╔═╡ afb580b8-6517-4b98-87ed-9584bae6055e
 md"""
-# *ADNS*: Automatic differentiation nested sampling
+# *MEANS*: Maximum entropy as nested sampling
 
 A quick proof of principle to show that it is in fact doable!
+This notebook focuses on automatically differentiating $\log Z$ wrt. to the Lagrange multiplier $\lambda$.
 
 !!! note "Abstract"
-    ADNS is about:
+    MEANS is about:
 	- Differentiating the log partition function $\log Z$ directly using *automatic differentiation*. This allows one to solve for the Lagrange multipliers in maximum entropy (or miniumum Kullback-Leibler distance) problems and **evaluate** all kinds of statistics directly.
 	- And, in the same line of reasoning, dynamically **sample** from the new maximum entropy (or miniumum Kullback-Leibler distance) distribution by casting it as a posterior in a standard nested sampling problem.
 

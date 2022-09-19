@@ -25,9 +25,9 @@ end
 
 # ╔═╡ 04d20e5b-492d-4eff-93a2-5feb693ad565
 md"""
-# *ADNS*: Automatic differentiation nested sampling
+# *MEANS*: Maximum entropy as nested sampling
 
-First and quick stab at sampling directly from a maximum entropy (ME) distribution for networks, where networks are sampled dynamically under a given soft constraints of the number of edges and the network global clustering coefficient. It works quite well **without any tuning** up to `N = 10` nodes (such that `ndim = 100`) (haven't tested beyond -- who knows?).
+First and quick stab at sampling directly from a maximum entropy (ME) distribution for networks, where using nested sampling networks are sampled dynamically under a given soft constraints of the number of edges and the network global clustering coefficient. It works quite well **without any tuning** up to `N = 10` nodes (such that `ndim = 100`) (haven't tested beyond -- who knows?).
 
 This is yields a generic sampling algorithm for any [exponential family random graph model (ERGM)](https://en.wikipedia.org/wiki/Exponential_family_random_graph_models) but probably limited to a couple of dozen nodes.
 (Though if only one constraint is required and the other ones are implemented in the prior, the nested sampling run only needs to be done once, freeing up time for increasing the number of dimensions.)
@@ -35,7 +35,7 @@ This is yields a generic sampling algorithm for any [exponential family random g
 The gradient $\nabla_\lambda \log Z$ is quite sensitive to the value of $λ$ and $\lambda \sigma \sim N(0,1)$ where $\sigma$ is the stdev of the statistic for $\lambda$ under the prior. (You can show this by expanding the ME distribution in $\lambda$).
 
 !!! note "Abstract"
-    ADNS is about:
+    MEANS is about:
 	- Differentiating the log partition function $\log Z$ directly using *automatic differentiation*. This allows one to solve for the Lagrange multipliers in maximum entropy (or miniumum Kullback-Leibler distance) problems and **evaluate** all kinds of statistics directly.
 	- And, in the same line of reasoning, dynamically **sample** from the new maximum entropy (or miniumum Kullback-Leibler distance) distribution by casting it as a posterior in a standard nested sampling problem.
 """
