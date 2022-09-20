@@ -21,6 +21,6 @@ interesting advantages over approximate or MCMC-oriented approaches:
 
 The `.html` files are rendered from notebooks and can be visualized by
 downloading them or directly via `raw.githack.com`:
-- <https://raw.githack.com/mvsoom/adns/master/exponential.jl.html>
-- <https://raw.githack.com/mvsoom/adns/master/network.jl.html>
-- <https://raw.githack.com/mvsoom/adns/master/dag.jl.html>
+- <https://raw.githack.com/mvsoom/MEANS/master/exponential.jl.html>
+- <https://raw.githack.com/mvsoom/MEANS/master/network.jl.html>
+- <https://raw.githack.com/mvsoom/MEANS/master/dag.jl.html>
