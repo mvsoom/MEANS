@@ -11,50 +11,128 @@ begin
 	using Memoize
 	using Permutations
 	using Distributions
+	using LinearAlgebra
 	using Graphs
 	using GraphPlot
 	using StatsPlots
 	using PlutoUI
-	using ShortCodes
+	using Compose
 	TableOfContents()
 end
 
 # ╔═╡ 1510ea0a-336c-4090-8bc6-c7bfff774584
 md"""
-# Informative prior for DAGs
+# An informative prior for DAGs
 
-Two main pillars on which we build:
-- A Prior Distribution over Directed Acyclic Graphs for Sparse Bayesian Networks (Rios+ 2018): our $\pi(A)$
-- Network inference using informative priors (Mukherjee and Speed 2008): basically our method, uses MCMC whereas we could use MEANS
+We use **MEANS** (maximum entropy as nested sampling) construct an informative prior for DAGs, which can guide causal structure discovery in optimal intervention problems.
 
-DAG priors $\pi(A)$:
+The idea is to start from a prior for DAG adjacency matrices `π(A)` and update it via minimum Kullback-Leibler divergence to a posterior `p(A|λ)` which is softly constrained to adhere to certain information.
+This information is a set of so-called **soft constraints** which specify that certain observables `f(A)` must have given expectation values under the new posterior.
+
+This is exactly the same idea as in "Network inference using informative priors" (Mukherjee and Speed 2008), the difference being that we use MEANS (i.e., nested sampling) and not conventional MCMC to achieve the same goal.
+MEANS has several advantages over conventional MCMC methods when the problem dimensions are dozens or hundreds:
+- Fast, no burn-in required, good convergence measures
+- If only one soft constraint in place, one MEANS run suffices to map out the entire problem
+- Principled inclusion of prior information
+- Can evaluate (derivatives of) $\log Z$, can evaluate $H$, density of states, etc.
+- "Consistently score" any proposed DAG (for example by the do-calculus) with their posterior probability `p(A|λ)`, because the normalizing constant of `p(A|λ)` is estimated
+"""
+
+# ╔═╡ 9a01b192-74da-4a22-a3bb-c9c2118a2f68
+md"""
+Define the **number of nodes** `N` in the DAG, which determines the problem dimensionality (`O(N²)`). Note: changing this parameter will propagate instantly through the notebook.
+"""
+
+# ╔═╡ 1333d441-fe23-49aa-b0a7-f9ef8771ee38
+N = 6
+
+# ╔═╡ 9752becb-5936-45c8-8546-c52408d23451
+md"## Explore the prior"
+
+# ╔═╡ 875f9d27-ddc1-449b-8f16-c6ed7bc6252e
+md"""
+Look at some **samples** for the prior for the DAG `A ∼ π(A)` with `N` nodes:
+"""
+
+# ╔═╡ 17a791da-6597-4f61-a055-41eecec8e7c1
+md"""
+Define the **observables** (a.k.a. statistics, measures, features) we are interested in...
+"""
+
+# ╔═╡ c0d7832b-ed0e-42e6-995b-d5b5638bda24
+begin
+	"""Number of edges in the DAG"""
+	f₁(A) = ne(DiGraph(A))
+
+	"""Number of weakly connected components in the DAG"""
+	f₂(A) = length(weakly_connected_components(DiGraph(A)))
+
+	"""Distance (similarity) between undirected DAG's and path graph"""
+	f₃(A) = spectral_distance(SimpleGraph(DiGraph(A)), path_graph(N))
+	
+	f = [f₁, f₂, f₃]
+end
+
+# ╔═╡ 9ac9eb66-dfd8-40ec-9d70-12bd48e554e3
+md"""
+... and characterize the prior `π(A)` by the **distribution of the observables**.
+"""
+
+# ╔═╡ a13e473d-081d-4531-a355-36d12069d776
+md"""
+## Constrain the prior...
+
+... into something more informative.
+"""
+
+# ╔═╡ 85f4df0c-302f-4e4d-bb74-3ac23e245ef3
+md"""
+To start, we nudge the prior to being **more "stringy"** by penalizing distance away from the path graph.
+"""
+
+# ╔═╡ 5ee093c4-8ba9-4136-86a1-bac6fe8fa673
+md"We can visualize the effect from sampling from the posterior ..."
+
+# ╔═╡ 5905198f-293e-4283-a137-ec6d651176af
+md"... or by showing the effect of the constraint on our observables, as we did before."
+
+# ╔═╡ fff4b6a3-1629-4c74-8a36-e17efb19c937
+md"""
+Now we apply several constraints at once: we want to **penalize disconnected components** and want something **far away from a path graph** (something dense):
+"""
+
+# ╔═╡ 30ff5935-cde6-4f2c-9f02-4d6e89072462
+md"""
+And now something **stringy** but a bit **more edges**.
+"""
+
+# ╔═╡ e06a7463-6a93-4329-a86a-2e61d0e91b3e
+md"""
+## Conclusion
+
+In the preceding examples we explored more informative priors by sampling `A ∼ p(A|λ)` and by looking at the updated distributions of the observables `f` on these samples.
+
+We have set the `λ` in the same way as in (Mukherjee and Speed 2008), namely, by trial and error, but it is straightforward to **solve for `λ`** by using automatic differentiation (see `exponential.jl` in the repo).
+
+In addition, if only one constraint is in place, then we only need to do the MEANS run once and we can analytically derive all other properties and posterior samples using this one run. This is possible due to the way how nested sampling works and goes by the adage: "nested sampling can simulate any temperature" 😊.
+
+### Other DAG priors
+
+- Not uniform, but reasonable (Charpentier+ 2022) -- easy to sample from: this is the one implemented here
 - Uniform over all DAGs (Kuipers+ 2015) -- quite complex to sample from
 - Over sparse DAGs (Rios+ 2018) -- quite complex to sample from
-- Not uniform, but reasonable (Charpentier+ 2022) -- easy to sample from
-
-Because we use MEANS, we can
-- "Consistently score" any proposed DAG (for exampel by the do-calculus) with their posterior probability $p(A|\lambda)$
-  * Opens the door to VI/MAP approximations
-  * Though the normalizing constant is unnecessary for MCMC approaches because it cancels out in the proposal distribution, for example in (Mukherjee and Speed 2008)
-- Calculate and sample from $p(A|\lambda)$ for any realistic value of $\lambda$ once we have "mapped out" the problem once
-  * This can help to set $\lambda$ manually: simply vary it until samples from $p(A|\lambda)$ look plausible
-
-Possible measures to softly constrain in addition to the ones used by (Mukherjee and Speed 2008):
-- Graph (edit) distance from a given reference graph ("ground state", naturally leads to $\lambda$ as a temperature)
-  * Forces identifiability
-- Controllability measures?
-- Max flow algorithms
-  * Force identifiability with DAG prior using net positive flow from source to sink: general causality direction 
 """
 
 # ╔═╡ c04aa548-afb3-4536-9ede-6d22e21ef16c
-md"## Helper functions"
+md"### Helper functions"
 
-# ╔═╡ 7ccd1e59-bf6e-45d7-bc12-8ddc12890d71
-md"""
-We should use only one random number to select a random permutation of $n$ elements, whereas the standard [Fisher-Yate shuffle](https://en.wikipedia.org/wiki/Random_permutation#Fisher-Yates_shuffles) method uses $n-1$ random numbers.
-This can be fixed in a variety of ways, but we take the easy way out, assume $n < 10$ or so and just pick a random element from all possible permutations $P(n)$.
-"""
+# ╔═╡ 542fd742-2129-44eb-bc62-c2975802b4d6
+"""Plot the adjacency matrix `A` as a DAG"""
+function plotDAG(A)
+	set_default_graphic_size(5cm, 5cm)
+	g = DiGraph(A)
+	gplot(g, nodelabel=1:nv(g), EDGELINEWIDTH=.5)
+end
 
 # ╔═╡ 5db6f713-3861-421c-9422-888fd09af87b
 """Recursively and exhaustively enumerate all `n!` permutations of `[1:n]`. Source: <https://rosettacode.org/wiki/Category:Julia>"""
@@ -81,9 +159,14 @@ end
 
 # ╔═╡ c2ae9dd8-3a0c-4d85-9c14-f9b04dba6240
 begin
+	randchoice(a, u) = a[ceil(Int, length(a)*u)]
+
+	"""
+	Select a random permutation using only *one* random number `u` (unlike the standard Fisher-Yate shuffle, which uses `N-1` random numbers). There are cleverer ways of doing this, but here we just pick a random element from a precalculated array of all possible permutations -- works for `N ~< 10`.
+	"""
 	function rand_permutation_matrix(u, N)
 		𝐏 = johnsontrotter(N) # Memoized
-		perm = 𝐏[ceil(Int, N*u)]
+		perm = randchoice(𝐏, u)
 		Π = Matrix(Permutation(perm))
 	end
 
@@ -108,7 +191,9 @@ begin
 
 	prior(N; k...) = prior(N, rand(ndim(N)); k...)
 
-	"""Sample a random DAG `A ∼ π(A)` using the `ndim(N)` random numbers `u`"""
+	"""
+	Sample the adjacency matrix of a random DAG `A ∼ π(A)` using the `ndim(N)` random numbers `u`. The hyperparameters `α, β` control the sparsity of the DAGs through a `Beta(α, β)` prior for the Bernouilli probability controlling the placement of edges between nodes.
+	"""
 	function prior(N, u; α = .5, β = .5)
 		Π = rand_permutation_matrix(u[1], N)
 		p = rand_Bernouilli_prob(u[2], α, β)
@@ -119,75 +204,100 @@ end
 
 # ╔═╡ e196a110-b8f1-466d-a55d-8d2507b3700a
 let
-	g = DiGraph(prior(4))
-	gplot(g, nodelabel=1:nv(g))
+	samples = [prior(N) for _ in 1:3]
+	plotDAG.(samples)
 end
 
-# ╔═╡ 7bb8fdfa-23cd-4623-86a5-1308a8fbfba1
-begin
-	"""Define the distance (similarity) between two directed graphs as the spectral distance between their *undirected* projections"""
-	gdistance(g₁, g₂) = spectral_distance(Graph(g₁), Graph(g₂))
+# ╔═╡ 79a74b41-d0fe-4824-9f31-3d3a148345e4
+let
+	samples = [prior(N) for _ in 1:10_000]
+	plot([histogram(fᵢ.(samples); label=fᵢ) for fᵢ in f]...)
+end
 
-	"""Characterize `π(A)` with some stats"""
-	function collect_prior_stats(N; M = 10_000, g₀ = path_digraph(N), k...)
-		gs = [DiGraph(prior(N; k...)) for _ in 1:M]
+# ╔═╡ 123264e1-3fd3-4d10-a899-6199a1f443d5
+begin
+	adj(v) = reshape(v, N, N)
+	vec(A) = reshape(A, N^2)
 	
-		Dict(
-			:E => ne.(gs),
-			:nC => length.(weakly_connected_components.(gs)),
-			:d₀ => gdistance.(gs, Ref(g₀))
-		)
+	sampleposterior(chain, state) = adj(Array(sample(chain, 1), [:parameters]))
+
+	posterior(N, f::Function, λ::Number; k...) = posterior(N, [f], [λ]; k...)
+
+	"""
+	Calculate the posterior `p(A|λ) = Z(λ)⁻¹ π(A) exp(λ⋅f(A))` using the nested sampling algorithm. This yields an MCMC  chain  with weighted posterior samples and a `state` with the estimate for `log Z(λ)`.
+	"""
+	function posterior(N, fs, λs; α=.5, β=.5, nlive=3ndim(N))
+		ptform(u) = vec(prior(N, u; α=α, β=β))
+		logl(v) = λs ⋅ [f(adj(v)) for f in fs]
+	
+		model = NestedModel(logl, ptform)
+		sampler = Nested(ndim(N), nlive)
+		chain, state = sample(model, sampler; dlogz=0.1)
 	end
 end
 
-# ╔═╡ ff4bf5fc-755a-4619-b613-f0b462709c4f
-let stats = collect_prior_stats(5)
-	plot(
-		histogram(stats[:E]; label="# of edges"),
-		histogram(stats[:nC]; label="# connected components"),
-		histogram(stats[:d₀]; label="distance to g₀")
-	)
+# ╔═╡ 645ac969-b158-40ae-abad-589719431db2
+𝑃₁ = posterior(N, f₃, -100.);
+
+# ╔═╡ 4d93230c-69ff-4314-ac28-b86ea5abbb21
+let
+	samples = [sampleposterior(𝑃₁...) for _ in 1:3]
+	plotDAG.(samples)
 end
 
-# ╔═╡ 28a0a8b0-a31c-4ce9-af08-d5abacea5a20
-begin
-	N = 6
-	α, β = .5, .5 # These control the prior sparsity of the DAGs
-
-	g₀ = path_digraph(N)
-
-	adj(v) = reshape(v, N, N)
-	#f(A) = sum(A)
-	f(A) = gdistance(g₀, DiGraph(A))
-
-	λ = -1000.
-
-	ptform(u) = vec(prior(N, u; α=α, β=β))
-	logl(x) = λ*f(adj(x))
-
-	model = NestedModel(logl, ptform)
-	sampler = Nested(ndim(N), 2ndim(N))
-	chain, state = sample(model, sampler; dlogz=0.1)
+# ╔═╡ f6543a4b-2e91-4626-a72e-184b9bfafc89
+let
+	samples = [sampleposterior(𝑃₁...) for _ in 1:100]
+	plot([histogram(fᵢ.(samples); label=fᵢ) for fᵢ in f]...)
 end
 
-# ╔═╡ 035699c2-2cfa-4363-9873-981182a17a29
-gplot(DiGraph(adj(Array(sample(chain, 1), [:parameters]))))
+# ╔═╡ 713516d6-7264-474c-81c7-e2bdc9b8ee4d
+𝑃₂ = posterior(N, [f₂, f₃], [-100., 100.]);
+
+# ╔═╡ 112ce9a2-1ecb-4c5b-bb1e-9a37543ebe7b
+let
+	samples = [sampleposterior(𝑃₂...) for _ in 1:3]
+	plotDAG.(samples)
+end
+
+# ╔═╡ 0db5e49c-36f8-4792-8e30-89895e2e759a
+let
+	samples = [sampleposterior(𝑃₂...) for _ in 1:100]
+	plot([histogram(fᵢ.(samples); label=fᵢ) for fᵢ in f]...)
+end
+
+# ╔═╡ f0d70c65-249f-491c-b182-dcf649787186
+𝑃₃ = posterior(N, [f₁, f₃], [50., -100.]);
+
+# ╔═╡ 486cd690-5d2e-493f-b6bb-c5e030c7946e
+let
+	samples = [sampleposterior(𝑃₃...) for _ in 1:3]
+	plotDAG.(samples)
+end
+
+# ╔═╡ 8df78bc1-b825-4d73-929d-b3b0c2c53bf4
+let
+	samples = [sampleposterior(𝑃₃...) for _ in 1:100]
+	plot([histogram(fᵢ.(samples); label=fᵢ) for fᵢ in f]...)
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+Compose = "a81c6b42-2e10-5240-aca2-a61377ecd94b"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 GraphPlot = "a2cc645c-3eea-5389-862e-a155d0052231"
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Memoize = "c03570c3-d221-55d1-a50c-7939bbd78826"
 NestedSamplers = "41ceaf6f-1696-4a54-9b49-2e7a9ec3782e"
 Permutations = "2ae35dd2-176d-5d53-8349-f30d82d94d4f"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-ShortCodes = "f62ebe17-55c5-4640-972f-b59c0dd11ccf"
 StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 
 [compat]
+Compose = "~0.9.3"
 Distributions = "~0.25.59"
 ForwardDiff = "~0.10.30"
 GraphPlot = "~0.5.1"
@@ -196,7 +306,6 @@ Memoize = "~0.4.4"
 NestedSamplers = "~0.8.1"
 Permutations = "~0.4.14"
 PlutoUI = "~0.7.39"
-ShortCodes = "~0.3.3"
 StatsPlots = "~0.14.34"
 """
 
@@ -323,12 +432,6 @@ deps = ["Distances", "LinearAlgebra", "NearestNeighbors", "Printf", "SparseArray
 git-tree-sha1 = "75479b7df4167267d75294d14b58244695beb2ac"
 uuid = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
 version = "0.14.2"
-
-[[CodecZlib]]
-deps = ["TranscodingStreams", "Zlib_jll"]
-git-tree-sha1 = "ded953804d019afa9a3f98981d99b33e3db7b6da"
-uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
-version = "0.7.0"
 
 [[ColorSchemes]]
 deps = ["ColorTypes", "ColorVectorSpace", "Colors", "FixedPointNumbers", "Random"]
@@ -740,12 +843,6 @@ deps = ["Dates", "Mmap", "Parsers", "Unicode"]
 git-tree-sha1 = "3c837543ddb02250ef42f4738347454f95079d4e"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 version = "0.21.3"
-
-[[JSON3]]
-deps = ["Dates", "Mmap", "Parsers", "StructTypes", "UUIDs"]
-git-tree-sha1 = "fd6f0cae36f42525567108a42c1c674af2ac620d"
-uuid = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
-version = "1.9.5"
 
 [[JpegTurbo_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1232,12 +1329,6 @@ version = "0.8.2"
 deps = ["Distributed", "Mmap", "Random", "Serialization"]
 uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
 
-[[ShortCodes]]
-deps = ["Base64", "CodecZlib", "HTTP", "JSON3", "Memoize", "UUIDs"]
-git-tree-sha1 = "0fcc38215160e0a964e9b0f0c25dcca3b2112ad1"
-uuid = "f62ebe17-55c5-4640-972f-b59c0dd11ccf"
-version = "0.3.3"
-
 [[Showoff]]
 deps = ["Dates", "Grisu"]
 git-tree-sha1 = "91eddf657aca81df9ae6ceb20b959ae5653ad1de"
@@ -1321,12 +1412,6 @@ git-tree-sha1 = "9abba8f8fb8458e9adf07c8a2377a070674a24f1"
 uuid = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 version = "0.6.8"
 
-[[StructTypes]]
-deps = ["Dates", "UUIDs"]
-git-tree-sha1 = "d24a825a95a6d98c385001212dc9020d609f2d4f"
-uuid = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
-version = "1.8.1"
-
 [[SuiteSparse]]
 deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
 uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
@@ -1372,12 +1457,6 @@ version = "0.1.5"
 [[Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-
-[[TranscodingStreams]]
-deps = ["Random", "Test"]
-git-tree-sha1 = "216b95ea110b5972db65aa90f88d8d89dcb8851c"
-uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
-version = "0.9.6"
 
 [[Transducers]]
 deps = ["Adapt", "ArgCheck", "BangBang", "Baselet", "CompositionsBase", "DefineSingletons", "Distributed", "InitialValues", "Logging", "Markdown", "MicroCollections", "Requires", "Setfield", "SplittablesBase", "Tables"]
@@ -1649,15 +1728,36 @@ version = "0.9.1+5"
 
 # ╔═╡ Cell order:
 # ╟─1510ea0a-336c-4090-8bc6-c7bfff774584
-# ╠═adf8594e-c5ff-40e7-b9b3-237c3ceef8b7
-# ╠═c2ae9dd8-3a0c-4d85-9c14-f9b04dba6240
+# ╟─adf8594e-c5ff-40e7-b9b3-237c3ceef8b7
+# ╟─9a01b192-74da-4a22-a3bb-c9c2118a2f68
+# ╠═1333d441-fe23-49aa-b0a7-f9ef8771ee38
+# ╟─9752becb-5936-45c8-8546-c52408d23451
+# ╟─875f9d27-ddc1-449b-8f16-c6ed7bc6252e
 # ╠═e196a110-b8f1-466d-a55d-8d2507b3700a
-# ╟─7bb8fdfa-23cd-4623-86a5-1308a8fbfba1
-# ╠═ff4bf5fc-755a-4619-b613-f0b462709c4f
-# ╠═28a0a8b0-a31c-4ce9-af08-d5abacea5a20
-# ╠═035699c2-2cfa-4363-9873-981182a17a29
+# ╟─17a791da-6597-4f61-a055-41eecec8e7c1
+# ╠═c0d7832b-ed0e-42e6-995b-d5b5638bda24
+# ╟─9ac9eb66-dfd8-40ec-9d70-12bd48e554e3
+# ╠═79a74b41-d0fe-4824-9f31-3d3a148345e4
+# ╟─a13e473d-081d-4531-a355-36d12069d776
+# ╟─85f4df0c-302f-4e4d-bb74-3ac23e245ef3
+# ╠═645ac969-b158-40ae-abad-589719431db2
+# ╟─5ee093c4-8ba9-4136-86a1-bac6fe8fa673
+# ╠═4d93230c-69ff-4314-ac28-b86ea5abbb21
+# ╟─5905198f-293e-4283-a137-ec6d651176af
+# ╠═f6543a4b-2e91-4626-a72e-184b9bfafc89
+# ╟─fff4b6a3-1629-4c74-8a36-e17efb19c937
+# ╠═713516d6-7264-474c-81c7-e2bdc9b8ee4d
+# ╠═112ce9a2-1ecb-4c5b-bb1e-9a37543ebe7b
+# ╠═0db5e49c-36f8-4792-8e30-89895e2e759a
+# ╟─30ff5935-cde6-4f2c-9f02-4d6e89072462
+# ╠═f0d70c65-249f-491c-b182-dcf649787186
+# ╠═486cd690-5d2e-493f-b6bb-c5e030c7946e
+# ╠═8df78bc1-b825-4d73-929d-b3b0c2c53bf4
+# ╟─e06a7463-6a93-4329-a86a-2e61d0e91b3e
 # ╟─c04aa548-afb3-4536-9ede-6d22e21ef16c
-# ╟─7ccd1e59-bf6e-45d7-bc12-8ddc12890d71
-# ╟─5db6f713-3861-421c-9422-888fd09af87b
+# ╠═c2ae9dd8-3a0c-4d85-9c14-f9b04dba6240
+# ╠═123264e1-3fd3-4d10-a899-6199a1f443d5
+# ╠═542fd742-2129-44eb-bc62-c2975802b4d6
+# ╠═5db6f713-3861-421c-9422-888fd09af87b
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
