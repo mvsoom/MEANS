@@ -24,18 +24,19 @@ end
 md"""
 # An informative prior for DAGs
 
-We use **MEANS** (maximum entropy as nested sampling) construct an informative prior for DAGs, which can guide causal structure discovery in optimal intervention problems.
+We use **MEANS** (maximum entropy as nested sampling) construct an informative prior for DAGs (directed acyclic graphs), which can guide causal structure discovery in optimal intervention problems.
 
 The idea is to start from a prior for DAG adjacency matrices `π(A)` and update it via minimum Kullback-Leibler divergence to a posterior `p(A|λ)` which is softly constrained to adhere to certain information.
 This information is a set of so-called **soft constraints** which specify that certain observables `f(A)` must have given expectation values under the new posterior.
 
-This is exactly the same idea as in "Network inference using informative priors" (Mukherjee and Speed 2008), the difference being that we use MEANS (i.e., nested sampling) and not conventional MCMC to achieve the same goal.
+This is exactly the same idea as in [(Mukherjee and Speed 2008)](https://www.pnas.org/doi/10.1073/pnas.0802272105), the difference being that we use MEANS (i.e., nested sampling) and not conventional MCMC to achieve the same goal.
 MEANS has several advantages over conventional MCMC methods when the problem dimensions are dozens or hundreds:
 - Fast, no burn-in required, good convergence measures
 - If only one soft constraint in place, one MEANS run suffices to map out the entire problem
 - Principled inclusion of prior information
 - Can evaluate (derivatives of) $\log Z$, can evaluate $H$, density of states, etc.
-- "Consistently score" any proposed DAG (for example by the do-calculus) with their posterior probability `p(A|λ)`, because the normalizing constant of `p(A|λ)` is estimated
+- "Consistently score" any proposed DAG (for example by some greedy algorithm) with their posterior probability `p(A|λ)`, because the normalizing constant of `p(A|λ)` is estimated.
+  * This also allows for VI/MAP approximations, because the score is a proper probability.
 """
 
 # ╔═╡ 9a01b192-74da-4a22-a3bb-c9c2118a2f68
@@ -82,7 +83,7 @@ md"""
 md"""
 ## Constrain the prior...
 
-... into something more informative.
+... into something more informative. We specify the value of the Lagrange multipliers `λ` by hand, but this can be automated -- below.
 """
 
 # ╔═╡ 85f4df0c-302f-4e4d-bb74-3ac23e245ef3
@@ -112,15 +113,18 @@ md"""
 
 In the preceding examples we explored more informative priors by sampling `A ∼ p(A|λ)` and by looking at the updated distributions of the observables `f` on these samples.
 
-We have set the `λ` in the same way as in (Mukherjee and Speed 2008), namely, by trial and error, but it is straightforward to **solve for `λ`** by using automatic differentiation (see `exponential.jl` in the repo).
+We have set the `λ` in the same way as in [(Mukherjee and Speed 2008)](https://www.pnas.org/doi/10.1073/pnas.0802272105), namely, by trial and error, but it is straightforward to **solve for `λ`** by using automatic differentiation (for more on this, see the other notebooks in [this repo](https://github.com/mvsoom/MEANS)).
 
 In addition, if only one constraint is in place, then we only need to do the MEANS run once and we can analytically derive all other properties and posterior samples using this one run. This is possible due to the way how nested sampling works and goes by the adage: "nested sampling can simulate any temperature" 😊.
+"""
 
+# ╔═╡ 9eb4f457-c68a-47c8-87ca-5c4f4045e9c3
+md"""
 ### Other DAG priors
 
-- Not uniform, but reasonable (Charpentier+ 2022) -- easy to sample from: this is the one implemented here
-- Uniform over all DAGs (Kuipers+ 2015) -- quite complex to sample from
-- Over sparse DAGs (Rios+ 2018) -- quite complex to sample from
+- Not uniform, but reasonable [(Charpentier+ 2022)](https://arxiv.org/abs/2203.08509) -- easy to sample from: this is the one implemented here
+- Uniform over all DAGs [(Kuipers+ 2015)](https://doi.org/10.1007/s11222-013-9428-y) -- quite complex to sample from
+- Over sparse DAGs [(Rios+ 2018)](http://arxiv.org/abs/1504.06701) -- quite complex to sample from
 """
 
 # ╔═╡ c04aa548-afb3-4536-9ede-6d22e21ef16c
@@ -1729,7 +1733,7 @@ version = "0.9.1+5"
 # ╔═╡ Cell order:
 # ╟─1510ea0a-336c-4090-8bc6-c7bfff774584
 # ╟─adf8594e-c5ff-40e7-b9b3-237c3ceef8b7
-# ╟─9a01b192-74da-4a22-a3bb-c9c2118a2f68
+# ╠═9a01b192-74da-4a22-a3bb-c9c2118a2f68
 # ╠═1333d441-fe23-49aa-b0a7-f9ef8771ee38
 # ╟─9752becb-5936-45c8-8546-c52408d23451
 # ╟─875f9d27-ddc1-449b-8f16-c6ed7bc6252e
@@ -1754,6 +1758,7 @@ version = "0.9.1+5"
 # ╠═486cd690-5d2e-493f-b6bb-c5e030c7946e
 # ╠═8df78bc1-b825-4d73-929d-b3b0c2c53bf4
 # ╟─e06a7463-6a93-4329-a86a-2e61d0e91b3e
+# ╟─9eb4f457-c68a-47c8-87ca-5c4f4045e9c3
 # ╟─c04aa548-afb3-4536-9ede-6d22e21ef16c
 # ╠═c2ae9dd8-3a0c-4d85-9c14-f9b04dba6240
 # ╠═123264e1-3fd3-4d10-a899-6199a1f443d5
