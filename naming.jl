@@ -24,6 +24,9 @@ begin
 	TableOfContents()
 end
 
+# ╔═╡ 9967a91d-5c6a-4642-be6d-7d5d6e129d1f
+md"Note: unfinished work"
+
 # ╔═╡ 37c410c8-f563-4c5f-a0c1-a135c7fed73a
 md"""
 # Next level naming game
@@ -104,7 +107,7 @@ function plotadj(A)
 end
 
 # ╔═╡ 048fcc34-ec59-4e07-8c54-6726822b1518
-plotadj(prior(5))
+plotadj.([prior(5) for _ in 1:3])
 
 # ╔═╡ 5bbfbffe-4af3-4a21-b95c-49e4a1d22a31
 begin
@@ -166,24 +169,6 @@ begin
 		model.c = convergence(nagents(model), inventory)
 	end
 end;
-
-# ╔═╡ 3e041584-a8e1-4a3a-9dd2-186a3fb1731c
-let
-	N = 10
-	T = 5
-	M = 100
-
-	A = prior(N)
-	models = [initialize(A) for _ in 1:M]
-	c = []
-	for model in models
-		adf, mdf, = run!(model, agent_step!, model_step!, T; mdata = [:c])
-		push!(c, last(mdf.c))
-	end
-	λ = .5
-	terms = λ*c
-	L = logsumexp(terms) - log(length(terms)), log(mean(terms))
-end
 
 # ╔═╡ 0839b2e3-1590-4cde-8769-edb078093fe3
 begin
@@ -250,7 +235,7 @@ plotadj.([sampleposterior(𝑃...) for _ in 1:3])
 
 # ╔═╡ 5f6f59e3-94b8-4238-bfeb-0f6f3bd75a66
 md"""
-# Conclusion
+## Conclusion
 
 There appear to be two strategies which favor convergence: sparse and stringy-like vs. dense (more succesful).
 """
@@ -1774,6 +1759,7 @@ version = "0.9.1+5"
 """
 
 # ╔═╡ Cell order:
+# ╟─9967a91d-5c6a-4642-be6d-7d5d6e129d1f
 # ╟─37c410c8-f563-4c5f-a0c1-a135c7fed73a
 # ╠═a9584c19-2516-4b15-b074-094e478831ae
 # ╠═fd47f9b1-ad53-4aab-a53c-a0c7e11419bc
@@ -1781,7 +1767,6 @@ version = "0.9.1+5"
 # ╠═048fcc34-ec59-4e07-8c54-6726822b1518
 # ╠═5bbfbffe-4af3-4a21-b95c-49e4a1d22a31
 # ╠═cb821cc2-ef48-42c1-9558-8bdd287defd1
-# ╠═3e041584-a8e1-4a3a-9dd2-186a3fb1731c
 # ╠═0839b2e3-1590-4cde-8769-edb078093fe3
 # ╠═a8917e6d-0e67-4651-b93d-0360cb2df4b7
 # ╠═83cbf6d1-1e8f-4ef2-9f99-6f2efcb71744
