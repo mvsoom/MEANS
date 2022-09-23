@@ -5,7 +5,7 @@ Kullback-Leibler divergence) problems with [nested
 sampling](https://projecteuclid.org/journals/bayesian-analysis/volume-1/issue-4/Nested-sampling-for-general-Bayesian-computation/10.1214/06-BA127.full).
 
 Out-of-the box, MEANS (maximum entropy as nested sampling) works only in
-moderate (dozens to hundreds) data dimensions, but in this regime has several
+moderate (dozens to hundreds) dimensions, but in this regime has several
 interesting advantages over approximate or MCMC-oriented approaches:
 - Nested sampling offers clear convergence criteria and has no "burn-in" phase.
 - If there is only one constraint active, one nested sampling run can "map out"
